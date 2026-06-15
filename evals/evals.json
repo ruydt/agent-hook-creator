@@ -1,0 +1,82 @@
+{
+  "skill_name": "agent-hook-creator",
+  "evals": [
+    {
+      "id": 1,
+      "name": "claude-pretooluse-guard",
+      "agent": "Claude Code",
+      "prompt": "Create a Claude Code hook that stops the agent from running destructive shell commands like rm -rf.",
+      "expected_output": "A PreToolUse hook (matcher Bash) reading event JSON from STDIN, blocking dangerous commands via permissionDecision:deny on stdout (exit 0) with exit 2 + stderr as fallback, keeping STDOUT clean, deliberately failing OPEN on internal errors, plus settings.json registration, a STDIN-pipe test, and pitfalls.",
+      "files": [],
+      "assertions": [
+        { "text": "Reads the event payload as JSON from STDIN", "type": "model" },
+        { "text": "Blocks via the PreToolUse permissionDecision:deny JSON on stdout (exit 0) as primary, with exit 2 + stderr as fallback", "type": "model" },
+        { "text": "Keeps STDOUT clean (logs go to a file/STDERR, never to STDOUT which is the control channel)", "type": "model" },
+        { "text": "Deliberately fails OPEN on internal errors (exits 0 on parse failure / missing dependency), and does not use set -e in a way that aborts mid-script", "type": "model" },
+        { "text": "Registers correctly in a Claude Code settings.json hooks{} block with matcher Bash", "type": "model" },
+        { "text": "Provides a STDIN-pipe test command and pitfalls specific to this agent/event", "type": "model" }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "claude-posttooluse-format",
+      "agent": "Claude Code",
+      "prompt": "I want a Claude Code hook that runs prettier on any file the agent edits or writes, right after it edits it.",
+      "expected_output": "A PostToolUse hook with matcher Edit|Write reading tool_input.file_path from the STDIN JSON, formatting that file, failing OPEN (a formatter must never block; PostToolUse can't block anyway), keeping STDOUT clean, plus correct settings.json registration, a test, and pitfalls.",
+      "files": [],
+      "assertions": [
+        { "text": "Registers PostToolUse with a matcher covering Edit (and Write/MultiEdit) — the correct event + matcher", "type": "model" },
+        { "text": "Reads the edited file path from the STDIN JSON (tool_input.file_path), the field that tool actually provides", "type": "model" },
+        { "text": "Fails OPEN / exits 0 (a formatter must not block; PostToolUse cannot block the already-completed tool anyway)", "type": "model" },
+        { "text": "Keeps STDOUT clean (logs to file/STDERR, not the protocol channel)", "type": "model" },
+        { "text": "Provides settings.json registration, a test command, and pitfalls", "type": "model" }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "claude-stop-notify",
+      "agent": "Claude Code",
+      "prompt": "Make a Claude Code hook that sends me a desktop notification when the agent finishes responding.",
+      "expected_output": "A Stop hook reading the STDIN JSON, firing a desktop notification, always exiting 0 (observer/notifier — must never block the agent stopping), keeping STDOUT clean, plus settings.json registration, a test, and pitfalls.",
+      "files": [],
+      "assertions": [
+        { "text": "Targets the Stop event and reads the event JSON from STDIN", "type": "model" },
+        { "text": "Is an observer/notifier that fails OPEN — always exits 0 and never blocks the agent from stopping", "type": "model" },
+        { "text": "Keeps STDOUT clean (no protocol-channel pollution; logs to file/STDERR)", "type": "model" },
+        { "text": "Registers correctly under Stop in settings.json and provides a test command + pitfalls", "type": "model" }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "cursor-block-env-research",
+      "agent": "Cursor",
+      "prompt": "Write a Cursor hook that blocks the agent from reading or editing my .env files.",
+      "expected_output": "A Cursor hook that uses CURSOR'S actual contract (not Claude Code's): registered in a Cursor hooks.json, on the right Cursor event (e.g. beforeReadFile / preToolUse / beforeShellExecution), denying via Cursor's stdout JSON {\"permission\":\"deny\"} (and/or exit 2), accounting for Cursor's fail-open-by-default (failClosed:true for a real gate), reading the file path from the event, plus install/test and pitfalls. The tell of research: it does NOT use Claude Code's settings.json or hookSpecificOutput.permissionDecision shape.",
+      "files": [],
+      "assertions": [
+        { "text": "Uses Cursor's real registration (a Cursor hooks.json), NOT Claude Code's settings.json hooks{} block", "type": "model" },
+        { "text": "Uses Cursor's deny contract — stdout JSON like {\"permission\":\"deny\"} (and/or exit 2) — NOT Claude Code's hookSpecificOutput.permissionDecision shape", "type": "model" },
+        { "text": "Targets a correct Cursor event for file access (e.g. beforeReadFile / preToolUse / afterFileEdit / beforeShellExecution), and matches/denies .env paths", "type": "model" },
+        { "text": "Accounts for Cursor's fail-open-by-default for a security gate (e.g. sets failClosed:true or explicitly notes it)", "type": "model" },
+        { "text": "Reads the event JSON from STDIN and keeps STDOUT clean (logs to STDERR/file)", "type": "model" },
+        { "text": "Provides Cursor-correct registration, a test, and pitfalls (i.e. shows evidence of researching Cursor's current contract, not reusing Claude Code's)", "type": "model" }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "windsurf-block-forcepush-research",
+      "agent": "Windsurf",
+      "prompt": "I use Windsurf — write a hook that blocks the agent from running `git push --force`.",
+      "expected_output": "A Windsurf hook using WINDSURF'S actual contract: registered in a Windsurf hooks.json on pre_run_command, reading the JSON event from STDIN, and blocking via EXIT CODE 2 ONLY with the message on STDERR — recognizing Windsurf has NO stdout decision channel (so it must NOT emit a stdout JSON permission/decision object expecting it to block). Includes a Windows powershell variant note, install/test, and pitfalls. The tell of research: exit-2-only blocking, not a Claude-Code-style stdout JSON decision.",
+      "files": [],
+      "assertions": [
+        { "text": "Blocks via EXIT CODE 2 only (Windsurf's contract), with the block message on STDERR — does NOT rely on a stdout JSON decision object to block", "type": "model" },
+        { "text": "Targets the correct Windsurf event (pre_run_command) and reads the JSON event from STDIN (tool_info.command_line or equivalent)", "type": "model" },
+        { "text": "Registers in a Windsurf hooks.json (e.g. .windsurf/hooks.json), NOT Claude Code's settings.json", "type": "model" },
+        { "text": "Does NOT emit a Claude-Code-style stdout JSON permission/decision and assume it blocks (recognizes Windsurf has no stdout decision channel)", "type": "model" },
+        { "text": "Matches git push --force / -f and notes a Windows powershell variant (Windsurf supports a separate powershell command)", "type": "model" },
+        { "text": "Provides registration, a test command, and pitfalls (evidence of researching Windsurf's exit-code-only contract)", "type": "model" }
+      ]
+    }
+  ]
+}
